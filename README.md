@@ -1,9 +1,9 @@
 # Infrastructure monitoring and alerting
 
 Prometheus, Grafana, Alertmanager and exporters for a self-hosted Linux server
-and the containers on it. Deployed and running: seven containers, five rule
-groups, three provisioned dashboards, alerts delivered to an endpoint that
-records what it receives.
+and the containers on it. Deployed and running: eight scrape targets (all up),
+five rule groups, three provisioned dashboards, and alerts delivered to
+`alert-sink`, which records every notification and forwards it to Discord.
 
 This is project 2 of a three-project portfolio; the first is
 [distributed-task-queue](../distributed-task-queue), which exposes the
@@ -18,7 +18,7 @@ application metrics these rules watch for.
 | Service availability | `blackbox_exporter` HTTP probes of the services published on the host |
 | Application metrics | `/metrics` on the task queue API (submission, claim, retry, completion counters, queue depth from the database) |
 | Alerting | 13 rules across host, containers, availability, task queue and a deliberate Watchdog |
-| Delivery | Alertmanager → webhook → `alert-sink`, which records every notification it receives |
+| Delivery | Alertmanager → webhook → `alert-sink`, which records every notification and posts it to a Discord webhook |
 | Dashboards | Host overview, container overview, availability and alerts — provisioned from this repo, not clicked together |
 
 ## Layout
@@ -34,12 +34,28 @@ grafana/dashboards/*.json     the three dashboards
 alert-sink/                   tiny stdlib receiver, so delivery is provable
 deploy.sh                     tar + ssh + docker compose up
 docs/runbook.md               what each alert means and what to do about it
+docs/screenshots/             the pages below, captured from the running stack
 ```
+
+## Screenshots
+
+All eight targets up, including the task queue deployed alongside this stack:
+
+![Prometheus targets](docs/screenshots/prometheus-targets.png)
+
+Five rule groups loaded; `HostDiskSpaceLow` firing on a real condition and the
+deliberate `Watchdog` proving the pipeline:
+
+![Prometheus alerts](docs/screenshots/prometheus-alerts.png)
+
+Both alerts arriving at Alertmanager, grouped by receiver:
+
+![Alertmanager alerts](docs/screenshots/alertmanager-alerts.png)
 
 ## Deploy
 
 ```bash
-cp .env.example .env          # set GRAFANA_ADMIN_PASSWORD
+cp .env.example .env          # set GRAFANA_ADMIN_PASSWORD, DISCORD_WEBHOOK_URL
 ./deploy.sh                   # REMOTE=kota@server by default, target ~/monitoring
 ```
 
@@ -59,13 +75,17 @@ internal to the compose network — exporters are not published.
 Checked after deployment, not assumed:
 
 ```
-7 scrape targets, 7 up
+8 scrape targets, 8 up (task-queue included once the API was deployed)
 5 rule groups: host (5), containers (2), availability (2), taskqueue (3), meta (1)
 probe_success = 1 for all three probed services
 Grafana 11.3.0, dashboards: host-overview, containers-overview, availability
 Watchdog firing continuously and present in alert-sink output (pipeline proven)
 HostDiskSpaceLow firing for /mnt/media at 13.3% free
 ```
+
+The task-queue rules are loaded and evaluating: `TaskQueueDown`,
+`TaskQueueBacklog` and `TaskQueueFailureRate` are all inactive because the API is
+answering `/metrics` in 3–8 ms.
 
 ## Design decisions
 
@@ -89,9 +109,12 @@ HostDiskSpaceLow firing for /mnt/media at 13.3% free
 
 ## Limitations
 
-- The task queue is not deployed on the server yet, so its three rules are
-  loaded but idle. Enabling them is a two-line change in `prometheus.yml`.
-- Alertmanager delivers to the local sink only. Pointing it at email or a chat
-  webhook is a `receivers:` change in `alertmanager.yml`.
+- Notifications go to Discord only. The sink supports one webhook; a second
+  channel means running a second sink or adding the URL as a comma-separated
+  list.
+- The sink keeps the last 500 notifications in memory, so a restart clears the
+  proof endpoint (the Discord channel keeps its own history).
+- `TaskQueueFailureRate` needs traffic to mean anything: with an idle queue the
+  denominator is zero and the rule stays inactive by design.
 - Grafana dashboards are provisioned read-only (`allowUiUpdates: false`); edit
   the JSON in this repo rather than the UI.

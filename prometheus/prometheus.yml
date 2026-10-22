@@ -60,10 +60,10 @@ scrape_configs:
           - http://host.docker.internal:3001/
     relabel_configs: *blackbox_relabel
 
-  # The task queue API's own metrics. Disabled until that service is deployed:
-  # an always-down target would sit in firing state and teach everyone to ignore
-  # TaskQueueDown. Uncomment and set the address once the API is running.
-  # - job_name: task-queue
-  #   metrics_path: /metrics
-  #   static_configs:
-  #     - targets: ["host.docker.internal:8000"]
+  # The task queue API's own metrics. Scraped by container name over the shared
+  # monitoring network rather than through the host, so the API does not need a
+  # port open to the LAN. The API stack declares the alias `taskqueue-api`.
+  - job_name: task-queue
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["taskqueue-api:8000"]

@@ -44,6 +44,12 @@ services:
     restart: unless-stopped
     environment:
       SINK_TOKEN: ${ALERT_SINK_TOKEN:-change-me}
+      # Optional Discord forwarding. Leave DISCORD_WEBHOOK_URL unset to keep the
+      # sink record-only. The URL is the credential, so it stays in .env and
+      # never in the tracked Alertmanager config.
+      DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:-}
+      DISCORD_MENTION: ${DISCORD_MENTION:-}
+      DISCORD_USERNAME: ${DISCORD_USERNAME:-server-monitoring}
     mem_limit: 64m
 
   grafana:
