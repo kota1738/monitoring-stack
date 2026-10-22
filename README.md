@@ -81,11 +81,27 @@ probe_success = 1 for all three probed services
 Grafana 11.3.0, dashboards: host-overview, containers-overview, availability
 Watchdog firing continuously and present in alert-sink output (pipeline proven)
 HostDiskSpaceLow firing for /mnt/media at 13.3% free
+Discord delivery: hand-fired alert posted (posted=true, no error), and its
+resolution posted as a second message
 ```
 
 The task-queue rules are loaded and evaluating: `TaskQueueDown`,
 `TaskQueueBacklog` and `TaskQueueFailureRate` are all inactive because the API is
 answering `/metrics` in 3–8 ms.
+
+The sink reports what it did with each notification, so delivery is checked
+rather than inferred:
+
+```json
+{
+  "status": "firing",
+  "name": "DiscordVerify",
+  "severity": "warning",
+  "instance": "notification-test",
+  "posted": true,
+  "post_error": null
+}
+```
 
 ## Design decisions
 
