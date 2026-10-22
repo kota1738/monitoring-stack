@@ -1,0 +1,22 @@
+groups:
+  - name: containers
+    rules:
+      - alert: ContainerStopped
+        expr: |
+          time() - container_last_seen{name=~".+"} > 60
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container {{ $labels.name }} stopped reporting"
+          description: "cAdvisor has not seen {{ $labels.name }} for over two minutes; the container is down or removed."
+
+      - alert: ContainerRestartingLoop
+        expr: |
+          changes(container_start_time_seconds{name=~".+"}[15m]) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container {{ $labels.name }} restarted repeatedly"
+          description: "{{ $value }} restarts in the last 15 minutes, which usually means a crash loop."

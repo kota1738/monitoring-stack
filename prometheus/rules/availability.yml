@@ -1,0 +1,51 @@
+groups:
+  - name: availability
+    rules:
+      - alert: ProbeFailing
+        expr: probe_success == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.instance }} is not answering"
+          description: "The HTTP probe has failed for two minutes (status {{ $value }})."
+
+      - alert: ProbeSlow
+        expr: probe_duration_seconds > 2
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.instance }} is slow"
+          description: "Probe took {{ $value | printf \"%.2f\" }}s, sustained for ten minutes."
+
+  - name: taskqueue
+    rules:
+      - alert: TaskQueueDown
+        expr: up{job="task-queue"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Task queue API is not scrapeable"
+          description: "{{ $labels.instance }} has not answered /metrics for two minutes."
+
+      - alert: TaskQueueBacklog
+        expr: taskqueue_jobs{status="queued"} > 50
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Task queue backlog above 50"
+          description: "{{ $value }} jobs queued for five minutes; workers are not keeping up or are down."
+
+      - alert: TaskQueueFailureRate
+        expr: |
+          sum(rate(taskqueue_jobs_finished_total{status="failed"}[10m]))
+            / sum(rate(taskqueue_jobs_finished_total[10m])) > 0.2
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "More than 20% of finished jobs are failing"
+          description: "Failure ratio {{ $value | humanizePercentage }} over ten minutes."

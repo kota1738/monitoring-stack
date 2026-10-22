@@ -1,0 +1,54 @@
+groups:
+  - name: host
+    rules:
+      - alert: InstanceDown
+        # Probe jobs are covered by ProbeFailing, and the task queue by its own
+        # alert; without this exclusion one dead endpoint pages twice.
+        expr: up{job!~"blackbox-http.*|task-queue"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.job }} on {{ $labels.instance }} is not responding"
+          description: "Prometheus has failed to scrape {{ $labels.instance }} for two minutes."
+
+      - alert: HostDiskSpaceLow
+        expr: |
+          (node_filesystem_avail_bytes{fstype!~"tmpfs|ramfs|overlay",mountpoint!~"/var/lib/docker/.+"}
+            / node_filesystem_size_bytes{fstype!~"tmpfs|ramfs|overlay",mountpoint!~"/var/lib/docker/.+"}) < 0.15
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Disk space below 15% on {{ $labels.mountpoint }}"
+          description: "{{ $value | humanizePercentage }} free on {{ $labels.mountpoint }} ({{ $labels.device }})."
+
+      - alert: HostDiskFillingUp
+        expr: |
+          predict_linear(node_filesystem_avail_bytes{fstype!~"tmpfs|ramfs|overlay"}[6h], 24 * 3600) < 0
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.mountpoint }} is projected to fill within 24 hours"
+          description: "At the current write rate, {{ $labels.mountpoint }} runs out of space tomorrow."
+
+      - alert: HostMemoryPressure
+        expr: |
+          (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) > 0.90
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Memory above 90% for ten minutes"
+          description: "{{ $value | humanizePercentage }} of memory in use; the kernel will start reclaiming cache."
+
+      - alert: HostLoadHigh
+        expr: |
+          node_load5 > (count(node_cpu_seconds_total{mode="idle"}) * 1.5)
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Sustained load above 1.5x core count"
+          description: "5-minute load average is {{ $value | printf \"%.2f\" }}."

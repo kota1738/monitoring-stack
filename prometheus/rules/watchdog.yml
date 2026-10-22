@@ -1,0 +1,13 @@
+groups:
+  - name: meta
+    rules:
+      # Always firing by design. If this alert stops arriving at the sink, the
+      # pipeline is broken even though every other alert is silent — which is
+      # otherwise indistinguishable from a healthy system.
+      - alert: Watchdog
+        expr: vector(1)
+        labels:
+          severity: none
+        annotations:
+          summary: "Alert pipeline test"
+          description: "This alert fires permanently and exists to prove delivery works end to end."

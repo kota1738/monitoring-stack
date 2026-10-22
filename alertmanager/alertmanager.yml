@@ -1,0 +1,28 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: alert-sink
+  group_by: ["alertname", "instance"]
+  group_wait: 10s
+  group_interval: 2m
+  repeat_interval: 4h
+  routes:
+    - matchers:
+        - severity = "none"
+      receiver: alert-sink
+      repeat_interval: 24h
+
+receivers:
+  - name: alert-sink
+    webhook_configs:
+      - url: http://alert-sink:8080/alerts
+        send_resolved: true
+
+inhibit_rules:
+  # If a target is down, its probe results are noise.
+  - source_matchers:
+      - alertname = "InstanceDown"
+    target_matchers:
+      - alertname = "ProbeFailing"
+    equal: ["instance"]
